@@ -1,0 +1,5 @@
+pure def make_freq(n) = range(0,n).foldl( [], (acc,i) => acc.append(0) )
+pure def freq(x) = x.foldl( make_freq(22), (acc,i) => acc.replaceAt(i, acc[i]+1) )
+pure def append_a_n_times(x,a,n) = range(0,n).foldl( x, (acc,i) => acc.append(a) )
+pure def freq_to_sorted(x) = range(0,x.length()).foldl( [], (acc,i) => acc.append_a_n_times(i,x[i]) )
+pure def sort(x) = freq_to_sorted(freq(x))
