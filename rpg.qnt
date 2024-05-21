@@ -4,7 +4,7 @@ module rpg {
     type Creature = {
         hp: int,
         atk: int,
-		spd: int,
+		ini: int,
         class: Class
     }
 
@@ -15,12 +15,22 @@ module rpg {
 
 	var v: List[Creature]
 
+	pure def intCompare(a: int, b: int): Ordering = {
+		if(a<b)
+			{LT}
+		else if(a>b)
+			{GT}
+		else {EQ}
+	}
+
+	pure def toSet(x) = x.foldl(Set(), (acc,i) => acc.union(Set(i)))
+
 	action init = all {
-		p1' = { hp: 20, atk: 10, spd: 1, class: Wizard },
-		p2' = { hp: 20, atk: 10, spd: 1, class: Cleric },
-		p3' = { hp: 150, atk: 10, spd: 1, class: Barbarian },
-		e1' = { hp: 100, atk: 20, spd: 1, class: Monster },
-		v' = List(p1,p2,p3,e1)
+		p1' = { hp: 20, atk: 10, ini: 1, class: Wizard },
+		p2' = { hp: 20, atk: 10, ini: 1, class: Cleric },
+		p3' = { hp: 150, atk: 10, ini: 1, class: Barbarian },
+		e1' = { hp: 100, atk: 20, ini: 1, class: Monster },
+		v' = toSet(v).toList( (a,b) => intCompare(b.ini,a.ini) )
 	}
 
 	pure def damage(q: Creature, x: int): Creature = {
