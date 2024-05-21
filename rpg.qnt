@@ -15,13 +15,13 @@ module rpg {
 
 	var v: List[Creature]
 
-	pure def intCompare(a: int, b: int): Ordering = {
-		if(a<b)
-			{LT}
-		else if(a>b)
-			{GT}
-		else {EQ}
-	}
+	// pure def intCompare(a: int, b: int): Ordering = {
+	// 	if(a<b)
+	// 		{LT}
+	// 	else if(a>b)
+	// 		{GT}
+	// 	else {EQ}
+	// }
 
 	pure def toSet(x) = x.foldl(Set(), (acc,i) => acc.union(Set(i)))
 
@@ -30,7 +30,8 @@ module rpg {
 		p2' = { hp: 20, atk: 10, ini: 1, class: Cleric },
 		p3' = { hp: 150, atk: 10, ini: 1, class: Barbarian },
 		e1' = { hp: 100, atk: 20, ini: 1, class: Monster },
-		v' = toSet(v).toList( (a,b) => intCompare(b.ini,a.ini) )
+		// v' = toSet(v).toList( (a,b) => intCompare(b.ini,a.ini) )
+		v' = List(p1, p2, p3, e1)
 	}
 
 	pure def damage(q: Creature, x: int): Creature = {
