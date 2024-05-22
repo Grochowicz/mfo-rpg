@@ -101,6 +101,11 @@ module rpg {
 			v[p].hp > 0,
 			v[p].paralized == false,
 
+			match v[p].class {
+				| Cleric => false
+				| _ => true
+			},
+
 			v[q].hp > 0,
 			v[q].imune == false,
 			v' = v.replaceAt( q, damage(v[q], v[p].atk) )
@@ -148,6 +153,7 @@ module rpg {
 			v[p].paralized == false,
 			match v[p].class {
 				| Monster => false
+				| Cleric => false
 				| _ => true
 			},
 			
@@ -159,19 +165,6 @@ module rpg {
 			v[q].paralized == true,
 
 			v' = v.replaceAt( q, unparalize(v[q]) )
-		}
-	}
-
-	action support_immunize(p: int, fr: Set[int]): bool = all {
-		all {
-			v[p].hp > 0,
-			v[p].paralized == false,
-			match v[p].class {
-				| Cleric => true
-				| _ => false
-			},
-
-			v' = fr.fold(v, (acc,i) => v.replaceAt(i, immunize(v[i])))
 		}
 	}
 
@@ -188,7 +181,7 @@ module rpg {
 		}
 	}
 
-	action cleric_unimmunize(p: int, fr: Set[int]): bool = all {
+	action cleric_unimmunize_and_attack_or_support(p: int, q: int, fr: Set[int]): bool = {
 		all {
 			v[p].hp > 0,
 			v[p].paralized == false,
@@ -197,7 +190,15 @@ module rpg {
 				| _ => false
 			},
 
-			v' = fr.fold(v, (acc,i) => v.replaceAt(i, unimmunize(v[i])))
+			val v2 = fr.fold(v, (acc,i) => v.replaceAt(i, unimmunize(v[i])))
+
+			any {
+				all {
+					v[q].imune == false,
+					v' = v2.replaceAt( q, damage(v2[q], v2[p].atk) )
+				},
+				v' = fr.fold(v2, (acc,i) => v2.replaceAt(i, immunize(v2[i])))
+			}
 		}
 	}
 
@@ -229,11 +230,12 @@ module rpg {
 			is_dead(current), // ok
 			is_paralized(current), // ok
 			is_taunted_and_attack(current), // ok
-			attack_damage(current, enemy), // ok, all
+			attack_damage(current, enemy), // ok, all except cleric
 			attack_paralize(current, enemy), // ok, monster, wizard
 			attack_taunt(current, enemy), // ok, barbarian
-			support_unparalize(current, friend), // ok, all players / monster 
-			support_immunize(current, friends(current)), // almost ok, cleric 
+			support_unparalize(current, friend), // ok, all except cleric
+			cleric_unimmunize_and_attack_or_support(current, enemy, friends(current)),
+			// nao ta funcionando ainda pq o cleric não ta se auto imunizando / desimunizando
 			self_unparalize(current), // ok, monster
 		},
 		//v' = v.replaceAt(enemy, modify(v[enemy], v[current])),
