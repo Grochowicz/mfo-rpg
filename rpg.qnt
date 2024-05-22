@@ -48,7 +48,19 @@ module rpg {
 		v' = v.replaceAt(q, damage(v[q],x))
 	}
 
-	def enemies(q: Creature): Set[int] = {
-		range(0,v.length()).foldl(Set(), (acc,i) => if(other.get(q.class).contains(v[i].class)) acc.union(Set(i)) else acc)
+	def enemies(q: int): Set[int] = {
+		range(0,v.length()).foldl(Set(), (acc,i) => if(other.get(v[q].class).contains(v[i].class)) acc.union(Set(i)) else acc)
+	}
+
+	action step = all {
+		nondet t1 = oneOf(enemies(0))
+		nondet t2 = oneOf(enemies(1))
+		nondet t3 = oneOf(enemies(2))
+		nondet t4 = oneOf(enemies(3))
+
+		val t = List(t1,t2,t3,t4)
+		v' = range(0,v.length()).foldl( v, (acc,i) => acc.replaceAt(t[i], damage(acc[t[i]], v[i].atk))),
+
+		other' = other
 	}
 }
