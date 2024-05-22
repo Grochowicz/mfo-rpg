@@ -67,6 +67,14 @@ module rpg {
 		{...q, taunted: false, who_taunted: -1 }
 	}
 
+	pure def immunize(q: Creature): Creature = {
+		{...q, imune: true }
+	}
+
+	pure def unimmunize(q: Creature): Creature = {
+		{...q, imune: false }
+	}
+
 	action is_dead(q: int): bool = all {
 		v[q].hp == 0,
 		v' = v
@@ -77,7 +85,7 @@ module rpg {
 		v' = v
 	}
 
-	action is_taunted(q: int): bool = all {
+	action is_taunted_and_attack(q: int): bool = all {
 		v[q].taunted == true,
 		match v[q].class {
 			| Monster => true
@@ -134,25 +142,64 @@ module rpg {
 		}
 	}
 
-	// action support_unparalize(p: int, q: int): bool = all {
-	// 	all {
-	// 		v[p].hp > 0,
-	// 		v[p].paralized == false,
-	// 		match v[p].class {
-	// 			| Monster => false
-	// 			| _ => true
-	// 		},
+	action support_unparalize(p: int, q: int): bool = all {
+		all {
+			v[p].hp > 0,
+			v[p].paralized == false,
+			match v[p].class {
+				| Monster => false
+				| _ => true
+			},
 			
-	// 		v[q].hp > 0,
-	// 		match v[q].class {
-	// 			| Monster => false
-	// 			| _ => true
-	// 		},
-	// 		v[q].paralized == true,
+			v[q].hp > 0,
+			match v[q].class {
+				| Monster => false
+				| _ => true
+			},
+			v[q].paralized == true,
 
-	// 		v' = v.replaceAt( q, unparalize(v[q]) )
-	// 	}
-	// }
+			v' = v.replaceAt( q, unparalize(v[q]) )
+		}
+	}
+
+	action support_immunize(p: int, fr: Set[int]): bool = all {
+		all {
+			v[p].hp > 0,
+			v[p].paralized == false,
+			match v[p].class {
+				| Cleric => true
+				| _ => false
+			},
+
+			v' = fr.fold(v, (acc,i) => v.replaceAt(i, immunize(v[i])))
+		}
+	}
+
+	action self_unparalize(p: int): bool = all {
+		all {
+			v[p].hp > 0,
+			v[p].paralized == true,
+			match v[p].class {
+				| Monster => true
+				| _ => false
+			},
+
+			v' = v.replaceAt( p, unparalize(v[p]) )
+		}
+	}
+
+	action cleric_unimmunize(p: int, fr: Set[int]): bool = all {
+		all {
+			v[p].hp > 0,
+			v[p].paralized == false,
+			match v[p].class {
+				| Cleric => true
+				| _ => false
+			},
+
+			v' = fr.fold(v, (acc,i) => v.replaceAt(i, unimmunize(v[i])))
+		}
+	}
 
 	def enemies(q: int): Set[int] = {
 		range(0,v.length()).foldl(Set(), (acc,i) => if(other.get(v[q].class).contains(v[i].class)) acc.union(Set(i)) else acc)
@@ -168,17 +215,26 @@ module rpg {
 
 	action step = all {
 		// quem joga agora eh o v[current]
+
+		// any {
+		// 	self_unparalize(), // pensar como fazer
+		// 	is_player()
+		// }
+
+		// cleric_unimmunize(current, friends(current)), // ok, cleric
+
 		nondet enemy = oneOf(enemies(current).filter(x => true))
 		nondet friend = oneOf(friends(current).filter(x => true))
-
 		any {
-			is_dead(current),
-			is_paralized(current),
-			is_taunted(current),
-			attack_damage(current, enemy),
-			attack_paralize(current, enemy),
-			attack_taunt(current, enemy),
-			// support_unparalize(current, friend)
+			is_dead(current), // ok
+			is_paralized(current), // ok
+			is_taunted_and_attack(current), // ok
+			attack_damage(current, enemy), // ok, all
+			attack_paralize(current, enemy), // ok, monster, wizard
+			attack_taunt(current, enemy), // ok, barbarian
+			support_unparalize(current, friend), // ok, all players / monster 
+			support_immunize(current, friends(current)), // almost ok, cleric 
+			self_unparalize(current), // ok, monster
 		},
 		//v' = v.replaceAt(enemy, modify(v[enemy], v[current])),
 
