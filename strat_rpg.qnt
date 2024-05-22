@@ -126,6 +126,8 @@ module rpg {
 	}
 
 	action attack_damage(p: int, q: int): bool = all {
+		not(can_unparalize(p)),
+		not(can_skill(p)),
 		v[p].hp > 0,
 		v[p].paralized == false,
 		v[p].taunted == false,
@@ -152,6 +154,8 @@ module rpg {
 	}
 
 	action attack_paralize(p: int, q: int): bool = all {
+		not(can_unparalize(p)),
+		can_skill(p),
 		v[p].hp > 0,
 		v[p].paralized == false,
 		match v[p].class {
@@ -167,6 +171,8 @@ module rpg {
 		last_move' = { a: p, b: q, what: Paralize, move_damage: 0}
 	}
 	action attack_taunt(p: int, q: int): bool = all {
+		not(can_unparalize(p)),
+		can_skill(p),
 		v[p].hp > 0,
 		v[p].paralized == false,
 		match v[p].class {
@@ -185,6 +191,7 @@ module rpg {
 	}
 
 	action support_unparalize(p: int, q: int): bool = all {
+		can_unparalize(p),
 		v[p].hp > 0,
 		v[p].paralized == false,
 		match v[p].class {
@@ -241,12 +248,23 @@ module rpg {
 
 				any {
 					all {
+						not(can_unparalize(p)),
+						not(can_skill(p)),
 						v' = v2.replaceAt( q, damage(v2[q], v2[p].atk) ),
 						last_move' = { a: p, b: q, what: Damage, move_damage: v2[p].atk}
 					},
 					all {
+						not(can_unparalize(p)),
+						can_skill(p),
 						v' = fr.fold(v2, (acc,i) => acc.replaceAt(i, immunize(v2[i]))),
 						last_move' = { a: p, b: -1, what: Immunize, move_damage: 0}
+					},
+					all {
+						can_unparalize(p),
+						nondet target = oneOf(fr.filter(x => v[x].paralized))
+						v' = v.replaceAt( target, unparalize(v[target]) ),
+						nondet target = oneOf(fr.filter(x => v[x].paralized))
+						last_move' = { a: p, b: target, what: Unparalize, move_damage: 0}
 					}
 				}
 			}
@@ -261,11 +279,31 @@ module rpg {
 		range(0,v.length()).foldl(Set(), (acc,i) => if(other.get(v[q].class).contains(v[i].class)) acc else acc.union(Set(i)))
 	}
 
+	def can_unparalize(q: int):bool = {
+		val c1 = match v[q].class {
+			| Monster => false
+			| _ => true  
+		}
+		val c2 = friends(current).fold( false, (acc,i) => acc or v[i].paralized )
+		c1 and c2
+	}
+
+	def can_skill(q: int):bool = {
+		val c1 = match v[q].class {
+			| Monster => false
+			| _ => true
+		}
+		val c2 = not(v[q].paralized)
+		val c3 = enemies(current).fold( true, (acc,i) => acc and v[i].paralized )
+		val c4 = enemies(current).fold( true, (acc,i) => acc and v[i].taunted)
+		c1 and c2 and not(c3 or c4)
+	}
+
 	action step = all {
 		// quem joga agora eh o v[current]
 
-		nondet enemy = oneOf(enemies(current).filter(x => true))
-		nondet friend = oneOf(friends(current).filter(x => true))
+		nondet enemy = oneOf(enemies(current))
+		nondet friend = oneOf(friends(current))
 		any {
 			is_dead(current), // ok
 			is_paralized(current), // ok
@@ -273,7 +311,6 @@ module rpg {
 			attack_damage(current, enemy), // ok, all except cleric
 			attack_paralize(current, enemy), // ok, monster, wizard
 			attack_taunt(current, enemy), // ok, barbarian
-			support_unparalize(current, friend), // ok, all except cleric
 			cleric_unimmunize_and_attack_or_support(current, enemy, friends(current)),
 			self_unparalize(current), // ok, monster
 		},
