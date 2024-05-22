@@ -11,7 +11,17 @@ module rpg {
 		imune: bool,
         class: Class
     }
+	
+	type What = Damage | Taunt | Immunize | Paralize | Skip | Unparalize
 
+	type Move = {
+		a: int,
+		b: int,
+		what: What,
+		move_damage: int
+	}
+
+	var last_move: Move
 	var first_step: bool
 	var current: int
 	var v: List[Creature]
@@ -44,7 +54,9 @@ module rpg {
 		first_step' = true,
 
 		val sm = Set(Monster)
-		other' = Map(Monster -> Set(Barbarian,Wizard,Cleric), Barbarian -> sm, Wizard -> sm, Cleric -> sm)
+		other' = Map(Monster -> Set(Barbarian,Wizard,Cleric), Barbarian -> sm, Wizard -> sm, Cleric -> sm),
+		last_move' = { a: -1, b: -1, what: Damage, move_damage:0 }
+
 	}
 
 	pure def damage(q: Creature, x: int): Creature = {
@@ -81,7 +93,8 @@ module rpg {
 			| _ => true 
 		},
 		v[q].hp == 0,
-		v' = v
+		v' = v,
+		last_move' = { a: q, b: -1, what: Skip, move_damage: 0 }
 	}
 
 	action is_paralized(q: int): bool = all {
@@ -90,7 +103,8 @@ module rpg {
 			| _ => true 
 		},
 		v[q].paralized == true,
-		v' = v
+		v' = v,
+		last_move' = { a: q, b: -1, what: Skip, move_damage: 0 }
 	}
 
 	action is_taunted_and_attack(q: int): bool = all {
@@ -101,8 +115,14 @@ module rpg {
 			| _ => false
 		},
 		val p = v[q].who_taunted
-		val v2 = v.replaceAt(p, damage(v[p], v[q].atk))
-		v' = v2.replaceAt(q, untaunt(v[q]))
+
+		val dmg = if(first_step) v[q].atk else 2*v[q].atk
+		val v2 = v.replaceAt(p, damage(v[p], dmg))
+		v' = v2.replaceAt(q, untaunt(v[q])),
+
+		val p = v[q].who_taunted
+		val dmg = if(first_step) v[q].atk else 2*v[q].atk
+		last_move' = { a: q, b: p, what: Damage, move_damage: dmg }
 	}
 
 	action attack_damage(p: int, q: int): bool = all {
@@ -114,14 +134,20 @@ module rpg {
 			| _ => true
 		},
 
-		v[q].hp > 0,
 		v[q].imune == false,
 		val double_damage = not(first_step) and match v[p].class {
 			| Monster => true
 			| _ => false
 		}
-		val dmg = if(q::debug("dd",double_damage)) 2*v[p].atk else v[p].atk
-		v' = v.replaceAt( q, damage(v[q], dmg) )
+		val dmg = if(double_damage) 2*v[p].atk else v[p].atk
+		v' = v.replaceAt( q, damage(v[q], dmg) ),
+
+		val double_damage = not(first_step) and match v[p].class {
+			| Monster => true
+			| _ => false
+		}
+		val dmg = if(double_damage) 2*v[p].atk else v[p].atk
+		last_move' = { a: p, b: q, what: Damage, move_damage: dmg }
 	}
 
 	action attack_paralize(p: int, q: int): bool = all {
@@ -136,7 +162,8 @@ module rpg {
 		v[q].hp > 0,
 		v[q].paralized == false,
 
-		v' = v.replaceAt( q, paralize(v[q]) )
+		v' = v.replaceAt( q, paralize(v[q]) ),
+		last_move' = { a: p, b: q, what: Paralize, move_damage: 0}
 	}
 	action attack_taunt(p: int, q: int): bool = all {
 		v[p].hp > 0,
@@ -152,7 +179,8 @@ module rpg {
 			| _ => false
 		},
 
-		v' = v.replaceAt( q, taunt(v[q], p) )
+		v' = v.replaceAt( q, taunt(v[q], p) ),
+		last_move' = { a: p, b: q, what: Taunt, move_damage: 0}
 	}
 
 	action support_unparalize(p: int, q: int): bool = all {
@@ -171,7 +199,8 @@ module rpg {
 		},
 		v[q].paralized == true,
 
-		v' = v.replaceAt( q, unparalize(v[q]) )
+		v' = v.replaceAt( q, unparalize(v[q]) ),
+		last_move' = { a: p, b: q, what: Unparalize, move_damage: 0}
 	}
 
 	action self_unparalize(p: int): bool = all {
@@ -182,7 +211,8 @@ module rpg {
 			| _ => false
 		},
 
-		v' = v.replaceAt( p, unparalize(v[p]) )
+		v' = v.replaceAt( p, unparalize(v[p]) ),
+		last_move' = { a: p, b: p, what: Unparalize, move_damage: 0}
 	}
 
 	action cleric_unimmunize_and_attack_or_support(p: int, q: int, fr: Set[int]): bool = all {
@@ -194,11 +224,13 @@ module rpg {
 		any {
 			all {
 				v[p].hp==0, 
-				v' = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i])))
+				v' = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i]))),
+				last_move' = { a: p, b: -1, what: Skip, move_damage: 0}
 			},
 			all {
 				v[p].paralized==true,
-				v' = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i])))
+				v' = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i]))),
+				last_move' = { a: p, b: -1, what: Skip, move_damage: 0}
 			},
 			all {
 				v[p].hp > 0,
@@ -207,8 +239,14 @@ module rpg {
 				val v2 = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i])))
 
 				any {
-					v' = v2.replaceAt( q, damage(v2[q], v2[p].atk) ),
-					v' = fr.fold(v2, (acc,i) => acc.replaceAt(i, immunize(v2[i])))
+					all {
+						v' = v2.replaceAt( q, damage(v2[q], v2[p].atk) ),
+						last_move' = { a: p, b: q, what: Damage, move_damage: v2[p].atk}
+					},
+					all {
+						v' = fr.fold(v2, (acc,i) => acc.replaceAt(i, immunize(v2[i]))),
+						last_move' = { a: p, b: -1, what: Immunize, move_damage: 0}
+					}
 				}
 			}
 		}
@@ -237,8 +275,6 @@ module rpg {
 			support_unparalize(current, friend), // ok, all except cleric
 			cleric_unimmunize_and_attack_or_support(current, enemy, friends(current)),
 			self_unparalize(current), // ok, monster
-
-			//TODO skip
 		},
 
 		other' = other,
@@ -246,5 +282,13 @@ module rpg {
 		current' = (current + 1) % v.length()
 	}
 
-	val inv = v.foldl( true, (acc,i) => acc and not(i.imune) )
+	val monster_alive = v.foldl( true,(acc, i) => if(match i.class {
+		| Monster => true
+		| _ => false
+		}) acc and i.hp>0 else acc )
+
+	val players_alive = v.foldl( true,(acc, i) => if(match i.class {
+		| Monster => false 
+		| _ => true 
+		}) acc and i.hp>0 else acc )
 }
