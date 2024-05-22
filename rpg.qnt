@@ -35,7 +35,7 @@ module rpg {
 		val p3 = { hp: 150, atk: 10, ini: i3, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Barbarian }
 
 		nondet i4 = oneOf(1.to(20))
-		val e1 = { hp: 100, atk: 10, ini: i4, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Monster }
+		val e1 = { hp: 100, atk: 20, ini: i4, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Monster }
 		// monstro começa com 10 de ataque
 
 		v' = sort(List(p1,p2,p3,e1)),
@@ -190,14 +190,11 @@ module rpg {
 				| _ => false
 			},
 
-			val v2 = fr.fold(v, (acc,i) => v.replaceAt(i, unimmunize(v[i])))
+			val v2 = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i])))
 
 			any {
-				all {
-					v[q].imune == false,
-					v' = v2.replaceAt( q, damage(v2[q], v2[p].atk) )
-				},
-				v' = fr.fold(v2, (acc,i) => v2.replaceAt(i, immunize(v2[i])))
+				v' = v2.replaceAt( q, damage(v2[q], v2[p].atk) ),
+				v' = fr.fold(v2, (acc,i) => acc.replaceAt(i, immunize(v2[i])))
 			}
 		}
 	}
