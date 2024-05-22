@@ -49,22 +49,54 @@ module rpg {
 //		val mp = Map(p1 -> Set(e1), p2 -> Set(e1), p3 -> Set(e1), e1 -> Set(p1,p2,p3))
 	}
 
-	pure def is_dead(q: Creature): bool = q.hp <= 0
-
-	pure def is_paralized(q: Creature): bool = q.paralized == true
-
 	pure def damage(q: Creature, x: int): Creature = {
 		{...q, hp: max(0,q.hp - x) }
 	}
 
-	action attack(q: int, x: int): bool = all {
-		// como faz pra checkar as condicoes pra ver se eu posso atacar?
-		v' = v.replaceAt(q, damage(v[q],x))
+	pure def paralize(q: Creature): Creature = {
+		{...q, paralized: true }
 	}
 
-	action paralize(q: int): bool = all {
-		// aqui tambem, como eu checko se posso paralizar o v[q]?
-		v' = v.replaceAt(q, { ...v[q], paralized: true })
+	action is_dead(q: Creature): bool = {
+		all {
+			q.hp == 0,
+			v' = v
+		}
+	}
+
+	action is_paralized(q: Creature): bool = {
+		all {
+			q.paralized == true,
+			v' = v
+		}
+	}
+
+	action attack_damage(p: int, q: int): bool = all {
+		// como faz pra checkar as condicoes pra ver se eu posso atacar?
+		all {
+			v[p].hp > 0,
+			v[p].paralized == false,
+
+			v[q].hp > 0,
+			v[q].imune == false,
+			v' = v.replaceAt( q, damage(v[q], v[p].atk) )
+		}
+	}
+
+	action attack_paralize(p: int, q: int): bool = all {
+		all {
+			v[p].hp > 0,
+			v[p].paralized == false,
+			
+			match v[p].class {
+				| Monster => true
+				| Wizard => true
+				| _ => false
+			},
+
+			v[q].hp > 0,
+			v' = v.replaceAt( q, paralize(v[q]) )
+		}
 	}
 
 	def enemies(q: int): Set[int] = {
@@ -87,8 +119,8 @@ module rpg {
 		any {
 			is_dead(v[current]),
 			is_paralized(v[current]),
-			// attack(enemy, v[current].atk), // NAO FUNCIONA, NAO SEI PQ
-			// paralize(enemy), // TAMBEM NAO FUNCIONA, PQQQ???
+			attack_damage(current, enemy), // FUNCIONA
+			attack_paralize(current, enemy)
 			// taunt(enemy),
 			// unparalize(friend),
 		},
