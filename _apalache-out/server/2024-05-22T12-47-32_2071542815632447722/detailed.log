@@ -1,6 +1,0 @@
-2024-05-22T12:47:32,346 [main] INFO  a.f.a.t.Tool$ - # APALACHE version: 0.44.10 | build: df60e0e
-2024-05-22T12:47:32,354 [main] INFO  a.f.a.t.t.o.ServerCmd - Starting server on port 8822...
-2024-05-22T12:47:36,097 [zio-default-async-5] INFO  a.f.a.i.p.PassChainExecutor$ - PASS #0: SanyParser
-2024-05-22T12:47:36,568 [zio-default-async-5] ERROR a.f.a.t.p.i.SanyParserPassImpl -   > Error parsing file StringSource(Qnt)
-2024-05-22T12:47:36,568 [zio-default-async-5] ERROR a.f.a.t.p.i.SanyParserPassImpl -   > Input was not a valid representation of the QuintIR: While converting operator application of defined operator 'foldr' to arguments List(QuintApp(108,range,List(QuintInt(105,0), QuintApp(107,length,List(QuintName(106,x_119))))), QuintApp(109,List,List()), QuintLambda(117,List(QuintLambdaParameter(110,i_117), QuintLambdaParameter(111,acc_117)),def,QuintApp(116,append_set,List(QuintName(112,acc_117), QuintApp(115,nth,List(QuintName(113,x_119), QuintName(114,i_117))))))): Input was not a valid representation of the QuintIR: No entry found for id 118 in lookup table
-2024-05-22T12:47:36,572 [zio-default-async-5] DEBUG a.f.a.i.p.PassChainExecutor$ - PASS #0: SanyParser [FAIL]
