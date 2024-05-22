@@ -35,7 +35,7 @@ module rpg {
 		val p3 = { hp: 150, atk: 10, ini: i3, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Barbarian }
 
 		nondet i4 = oneOf(1.to(20))
-		val e1 = { hp: 100, atk: 20, ini: i4, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Monster }
+		val e1 = { hp: 100, atk: 10, ini: i4, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Monster }
 		// monstro começa com 10 de ataque
 
 		v' = sort(List(p1,p2,p3,e1)),
@@ -76,16 +76,25 @@ module rpg {
 	}
 
 	action is_dead(q: int): bool = all {
+		match v[q].class {
+			| Cleric => false
+			| _ => true 
+		},
 		v[q].hp == 0,
 		v' = v
 	}
 
 	action is_paralized(q: int): bool = all {
+		match v[q].class {
+			| Monster => false 
+			| _ => true 
+		},
 		v[q].paralized == true,
 		v' = v
 	}
 
 	action is_taunted_and_attack(q: int): bool = all {
+		v[q].paralized == false,
 		v[q].taunted == true,
 		match v[q].class {
 			| Monster => true
@@ -97,104 +106,110 @@ module rpg {
 	}
 
 	action attack_damage(p: int, q: int): bool = all {
-		all {
-			v[p].hp > 0,
-			v[p].paralized == false,
+		v[p].hp > 0,
+		v[p].paralized == false,
 
-			match v[p].class {
-				| Cleric => false
-				| _ => true
-			},
+		match v[p].class {
+			| Cleric => false
+			| _ => true
+		},
 
-			v[q].hp > 0,
-			v[q].imune == false,
-			v' = v.replaceAt( q, damage(v[q], v[p].atk) )
+		v[q].hp > 0,
+		v[q].imune == false,
+		val double_damage = not(first_step) and match v[p].class {
+			| Monster => true
+			| _ => false
 		}
+		val dmg = if(q::debug("dd",double_damage)) 2*v[p].atk else v[p].atk
+		v' = v.replaceAt( q, damage(v[q], dmg) )
 	}
 
 	action attack_paralize(p: int, q: int): bool = all {
-		all {
-			v[p].hp > 0,
-			v[p].paralized == false,
-			match v[p].class {
-				| Monster => true
-				| Wizard => true
-				| _ => false
-			},
+		v[p].hp > 0,
+		v[p].paralized == false,
+		match v[p].class {
+			| Monster => true
+			| Wizard => true
+			| _ => false
+		},
 
-			v[q].hp > 0,
-			v[q].paralized == false,
+		v[q].hp > 0,
+		v[q].paralized == false,
 
-			v' = v.replaceAt( q, paralize(v[q]) )
-		}
+		v' = v.replaceAt( q, paralize(v[q]) )
 	}
 	action attack_taunt(p: int, q: int): bool = all {
-		all {
-			v[p].hp > 0,
-			v[p].paralized == false,
-			match v[p].class {
-				| Barbarian => true
-				| _ => false
-			},
+		v[p].hp > 0,
+		v[p].paralized == false,
+		match v[p].class {
+			| Barbarian => true
+			| _ => false
+		},
 
-			v[q].hp > 0,
-			match v[q].class {
-				| Monster => true
-				| _ => false
-			},
+		v[q].hp > 0,
+		match v[q].class {
+			| Monster => true
+			| _ => false
+		},
 
-			v' = v.replaceAt( q, taunt(v[q], p) )
-		}
+		v' = v.replaceAt( q, taunt(v[q], p) )
 	}
 
 	action support_unparalize(p: int, q: int): bool = all {
-		all {
-			v[p].hp > 0,
-			v[p].paralized == false,
-			match v[p].class {
-				| Monster => false
-				| Cleric => false
-				| _ => true
-			},
-			
-			v[q].hp > 0,
-			match v[q].class {
-				| Monster => false
-				| _ => true
-			},
-			v[q].paralized == true,
+		v[p].hp > 0,
+		v[p].paralized == false,
+		match v[p].class {
+			| Monster => false
+			| Cleric => false
+			| _ => true
+		},
+		
+		v[q].hp > 0,
+		match v[q].class {
+			| Monster => false
+			| _ => true
+		},
+		v[q].paralized == true,
 
-			v' = v.replaceAt( q, unparalize(v[q]) )
-		}
+		v' = v.replaceAt( q, unparalize(v[q]) )
 	}
 
 	action self_unparalize(p: int): bool = all {
-		all {
-			v[p].hp > 0,
-			v[p].paralized == true,
-			match v[p].class {
-				| Monster => true
-				| _ => false
-			},
+		v[p].hp > 0,
+		v[p].paralized == true,
+		match v[p].class {
+			| Monster => true
+			| _ => false
+		},
 
-			v' = v.replaceAt( p, unparalize(v[p]) )
-		}
+		v' = v.replaceAt( p, unparalize(v[p]) )
 	}
 
-	action cleric_unimmunize_and_attack_or_support(p: int, q: int, fr: Set[int]): bool = {
-		all {
-			v[p].hp > 0,
-			v[p].paralized == false,
-			match v[p].class {
-				| Cleric => true
-				| _ => false
+	action cleric_unimmunize_and_attack_or_support(p: int, q: int, fr: Set[int]): bool = all {
+		match v[p].class {
+			| Cleric => true
+			| _ => false
+		},
+
+		any {
+			all {
+				v[p].hp==0, 
+				v' = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i])))
 			},
+			all {
+				v[p].paralized==true,
+				v' = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i])))
+			},
+			all {
+				v[p].hp > 0,
+				v[p].paralized == false,
 
-			val v2 = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i])))
+				val v2 = fr.fold(v, (acc,i) => acc.replaceAt(i, unimmunize(v[i])))
 
-			any {
-				v' = v2.replaceAt( q, damage(v2[q], v2[p].atk) ),
-				v' = fr.fold(v2, (acc,i) => acc.replaceAt(i, immunize(v2[i])))
+				any {
+					v' = v2.replaceAt( q, damage(v2[q], v2[p].atk) ),
+					v' = fr.fold(v2, (acc,i) => acc.replaceAt(i, immunize(v2[i])))
+				}
 			}
 		}
 	}
@@ -207,19 +222,8 @@ module rpg {
 		range(0,v.length()).foldl(Set(), (acc,i) => if(other.get(v[q].class).contains(v[i].class)) acc else acc.union(Set(i)))
 	}
 
-	// def modify(q: Creature, p: Creature): Creature = {
-
-	// }
-
 	action step = all {
 		// quem joga agora eh o v[current]
-
-		// any {
-		// 	self_unparalize(), // pensar como fazer
-		// 	is_player()
-		// }
-
-		// cleric_unimmunize(current, friends(current)), // ok, cleric
 
 		nondet enemy = oneOf(enemies(current).filter(x => true))
 		nondet friend = oneOf(friends(current).filter(x => true))
@@ -232,16 +236,15 @@ module rpg {
 			attack_taunt(current, enemy), // ok, barbarian
 			support_unparalize(current, friend), // ok, all except cleric
 			cleric_unimmunize_and_attack_or_support(current, enemy, friends(current)),
-			// nao ta funcionando ainda pq o cleric não ta se auto imunizando / desimunizando
 			self_unparalize(current), // ok, monster
-		},
-		//v' = v.replaceAt(enemy, modify(v[enemy], v[current])),
 
-		// val t = List(t1,t2,t3,t4)
-		// v' = range(0,v.length()).foldl( v, (acc,i) => acc.replaceAt(t[i], damage(acc[t[i]], v[i].atk))),
+			//TODO skip
+		},
 
 		other' = other,
 		first_step' = false, // ver se eh a first step pra settar o atk do monstro
 		current' = (current + 1) % v.length()
 	}
+
+	val inv = v.foldl( true, (acc,i) => acc and not(i.imune) )
 }
