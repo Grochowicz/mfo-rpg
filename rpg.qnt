@@ -64,7 +64,7 @@ module rpg {
 	}
 
 	pure def untaunt(q: Creature): Creature = {
-		{...q, taunted: false }
+		{...q, taunted: false, who_taunted: -1 }
 	}
 
 	action is_dead(q: int): bool = all {
@@ -85,7 +85,7 @@ module rpg {
 		},
 		val p = v[q].who_taunted
 		val v2 = v.replaceAt(p, damage(v[p], v[q].atk))
-		v' = v2.replaceAt(q, untaunt(q))
+		v' = v2.replaceAt(q, untaunt(v[q]))
 	}
 
 	action attack_damage(p: int, q: int): bool = all {
@@ -134,25 +134,25 @@ module rpg {
 		}
 	}
 
-	action support_unparalize(p: int, q: int): bool = all {
-		all {
-			v[p].hp > 0,
-			v[p].paralized == false,
-			match v[p].class {
-				| Monster => false
-				| _ => true
-			},
+	// action support_unparalize(p: int, q: int): bool = all {
+	// 	all {
+	// 		v[p].hp > 0,
+	// 		v[p].paralized == false,
+	// 		match v[p].class {
+	// 			| Monster => false
+	// 			| _ => true
+	// 		},
 			
-			v[q].hp > 0,
-			match v[q].class {
-				| Monster => false
-				| _ => true
-			},
-			v[q].paralized == true,
+	// 		v[q].hp > 0,
+	// 		match v[q].class {
+	// 			| Monster => false
+	// 			| _ => true
+	// 		},
+	// 		v[q].paralized == true,
 
-			v' = v.replaceAt( q, unparalize(v[q]) )
-		}
-	}
+	// 		v' = v.replaceAt( q, unparalize(v[q]) )
+	// 	}
+	// }
 
 	def enemies(q: int): Set[int] = {
 		range(0,v.length()).foldl(Set(), (acc,i) => if(other.get(v[q].class).contains(v[i].class)) acc.union(Set(i)) else acc)
@@ -178,7 +178,7 @@ module rpg {
 			attack_damage(current, enemy),
 			attack_paralize(current, enemy),
 			attack_taunt(current, enemy),
-			support_unparalize(current, friend)
+			// support_unparalize(current, friend)
 		},
 		//v' = v.replaceAt(enemy, modify(v[enemy], v[current])),
 
