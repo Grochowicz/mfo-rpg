@@ -7,6 +7,7 @@ module rpg {
 		ini: int,
 		paralized: bool,
 		taunted: bool,
+		who_taunted: int,
 		imune: bool,
         class: Class
     }
@@ -25,16 +26,16 @@ module rpg {
 
 	action init = all {
 		nondet i1 = oneOf(1.to(20))
-		val p1 = { hp: 20, atk: 10, ini: i1, paralized: false, taunted: false, imune: false, class: Wizard }
+		val p1 = { hp: 20, atk: 10, ini: i1, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Wizard }
 
 		nondet i2 = oneOf(1.to(20))
-		val p2 = { hp: 20, atk: 10, ini: i2, paralized: false, taunted: false, imune: false, class: Cleric }
+		val p2 = { hp: 20, atk: 10, ini: i2, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Cleric }
 
 		nondet i3 = oneOf(1.to(20))
-		val p3 = { hp: 150, atk: 10, ini: i3, paralized: false, taunted: false, imune: false, class: Barbarian }
+		val p3 = { hp: 150, atk: 10, ini: i3, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Barbarian }
 
 		nondet i4 = oneOf(1.to(20))
-		val e1 = { hp: 100, atk: 10, ini: i4, paralized: false, taunted: false, imune: false, class: Monster }
+		val e1 = { hp: 100, atk: 10, ini: i4, paralized: false, taunted: false, who_taunted: -1, imune: false, class: Monster }
 		// monstro começa com 10 de ataque
 
 		v' = sort(List(p1,p2,p3,e1)),
@@ -57,6 +58,10 @@ module rpg {
 		{...q, paralized: true }
 	}
 
+	pure def taunt(q: Creature, who: int): Creature = {
+		{...q, taunted: true, who_taunted: who }
+	}
+
 	action is_dead(q: Creature): bool = {
 		all {
 			q.hp == 0,
@@ -67,6 +72,18 @@ module rpg {
 	action is_paralized(q: Creature): bool = {
 		all {
 			q.paralized == true,
+			v' = v
+		}
+	}
+
+	action is_taunted(q: Creature): bool = {
+		all {
+			q.taunted == true,
+			q.who_taunted >= 0,
+			match q.class {
+				| Monster => true
+				| _ => false
+			},
 			v' = v
 		}
 	}
@@ -88,14 +105,33 @@ module rpg {
 			v[p].hp > 0,
 			v[p].paralized == false,
 			
+			v[q].hp > 0,
 			match v[p].class {
 				| Monster => true
 				| Wizard => true
 				| _ => false
 			},
 
-			v[q].hp > 0,
 			v' = v.replaceAt( q, paralize(v[q]) )
+		}
+	}
+
+	action attack_taunt(p: int, q: int): bool = all {
+		all {
+			v[p].hp > 0,
+			v[p].paralized == false,
+			match v[p].class {
+				| Barbarian => true
+				| _ => false
+			},
+
+			v[q].hp > 0,
+			match v[q].class {
+				| Monster => true
+				| _ => false
+			},
+
+			v' = v.replaceAt( q, taunt(v[q], p) )
 		}
 	}
 
@@ -119,9 +155,10 @@ module rpg {
 		any {
 			is_dead(v[current]),
 			is_paralized(v[current]),
+			is_taunted(v[current]),
 			attack_damage(current, enemy), // FUNCIONA
-			attack_paralize(current, enemy)
-			// taunt(enemy),
+			attack_paralize(current, enemy),
+			attack_taunt(current, enemy),
 			// unparalize(friend),
 		},
 		//v' = v.replaceAt(enemy, modify(v[enemy], v[current])),
